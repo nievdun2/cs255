@@ -103,9 +103,39 @@ function pebble_chain() {
     state: null
   };
 
+  function pebble(position, is_special_pebble, hash_value){
+    var pebble = {
+      position: position,
+      is_special_pebble: is_special_pebble,
+      hash_value: hash_value
+    }
+    return pebble
+  }
+
+  chain.is_power_of_two_from_end = function(index){
+    var length_of_chain = chain.state.num_iterations;
+    var dist = length_of_chain - index;
+    var isPowerOf2 = (log2(dist) % 1) == 0;
+    return isPowerOf2;
+  }
+
   chain.initialize = function(num_iterations, seed) {
-    // TODO
-    throw "pebble_chain.initialize() is not implemented yet.";
+    var pebbles = []
+    chain.state = {
+      position: 0,
+      num_iterations: num_iterations,
+      pebbles: pebbles
+    }
+    var start = hash(seed);
+    var current_value = start;
+    for (var i = 0; i < num_iterations; i++){
+      if (chain.is_power_of_two_from_end(i)) {
+        chain.state.pebbles.push( new pebble(i, true, current_value))
+      }
+      current_value = hash(current_value);
+    }
+
+    return current_value;
   }
 
   chain.advance = function() {
