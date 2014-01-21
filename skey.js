@@ -113,7 +113,7 @@ function pebble_chain() {
   }
 
   chain.is_power_of_two_from_end = function(index){
-    var length_of_chain = chain.state.num_iterations;
+    var length_of_chain = chain.state.position;
     var dist = length_of_chain - index;
     var isPowerOf2 = (log2(dist) % 1) == 0;
     return isPowerOf2;
@@ -122,11 +122,12 @@ function pebble_chain() {
   chain.initialize = function(num_iterations, seed) {
     var pebbles = []
     chain.state = {
-      position: 0,
+      position: num_iterations,
       num_iterations: num_iterations,
       pebbles: pebbles
     }
     var start = hash(seed);
+
     var current_value = start;
     for (var i = 0; i < num_iterations; i++){
       if (chain.is_power_of_two_from_end(i)) {
@@ -138,21 +139,61 @@ function pebble_chain() {
     return current_value;
   }
 
+  chain.move_pebbles = function(){
+
+    var pebbles_to_add = [];
+    var num_pebbles_added = 0;
+    // Don't modify the last pebble since it will stay there to be returned next round
+    for (var i = 0; i < chain.state.pebbles.length - 1; i++){
+      var cur_pebble = chain.state.pebbles[i]
+      // If position of this pebble is power of 2 from end,
+      // we must duplicate it
+      if (chain.is_power_of_two_from_end(cur_pebble.position)){
+        var duplicate_pebble = pebble(cur_pebble.position, true, cur_pebble.hash_value);
+        // (i + num_pebbles_added) denotes the index at which this new pebble
+        // will be inserted into the pebble array
+        pebbles_to_add.push([duplicate_pebble, i + num_pebbles_added])
+        num_pebbles_added++;
+        // Since we have now duplicated this pebble, the original is no longer
+        // a 'special' pebble, since its copy is special
+        chain.state.pebbles[i].is_special_pebble = false;
+      }
+
+      // Advance by one all pebbles that are not 'special' placeholders
+      if (!cur_pebble.is_special_pebble){
+        chain.state.pebbles[i].position++;
+        chain.state.pebbles[i].hash_value = hash(chain.state.pebbles[i].hash_value)
+      }
+
+    }
+    // Now add in the duplicated pebbles
+    for(var k = 0; k < pebbles_to_add.length; k++){
+      chain.state.pebbles.splice(pebbles_to_add[k][1], 0, pebbles_to_add[k][0]);
+    }
+  }
+
   chain.advance = function() {
-    // TODO
-    throw "pebble_chain.advance() is not implemented yet.";
+    if (chain.state.position == 0) {
+      return null;
+    }
+
+    // Pop the end-most pebble to retrieve its hash value to return
+    var pebble_to_return = chain.state.pebbles.pop();
+
+    chain.move_pebbles()
+    chain.state.position--;
+    return pebble_to_return.hash_value
+
   }
 
   // Returns a string.
   chain.save = function() {
-    // TODO
-    throw "pebble_chain.save() is not implemented yet.";
+    return JSON.stringify(chain.state);
   }
 
   // Loads a string.
   chain.load = function(str_data) {
-    // TODO
-    throw "pebble_chain.load() is not implemented yet.";
+    chain.state = JSON.parse(str_data);
   }
 
   return chain;
