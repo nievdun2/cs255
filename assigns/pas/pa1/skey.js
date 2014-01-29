@@ -13,15 +13,43 @@
 */
 
 /* 1. Briefly describe your implementation and its design choices. (e.g. What algorithm did you use? How did you structure your code? Did you do something interesting in \texttt{save}/\texttt{load}? If it's not obvious, justify the space/time used by your implementation.)
-// TODO: Answer here (a few sentences).
+   
+   We initialize by storing pebbles at power of 2 intervals along the chain, i.e. at position 0, 2, 4, 8, 16 etc from the end of the chain. 
+   At each step, i.e. each call to advance(), we maintain the following invariant:
+
+Pebbles located at positions which are powers of two in distance from the current end of the chain are designated ‘special’ pebbles and do not advance. 
+All other pebbles are advanced by one. If a pebble reaches a ‘special‘ position, that pebble is duplicated before it advances further. 
+The duplicated pebble is now a ‘special’ one and stays put.
+
+Our code is structured as follows:
+
+In the ‘state’ of the chain, we store an array of pebbles. Each pebble object keeps track of that pebbles position, hash value, and a boolean to indicate if it is ‘special’ or not. 
+At each call to the advance() method, the pebble at the end of the chain is popped off and its hash value is returned. All other pebbles in the chain are then advanced according to the algorithm outlined above.
+
+For save() and load(), we just copied the function implementation that was given for the naive_chain(). 
+
+Our algorithm is log(n) in space used:
+
+During initialization, we create a pebble at each position that is a power of two from the end. 
+Therefore, we start with log(n) pebbles. New pebbles are only created during the duplication process, which happens when an advancing pebble reaches a ‘special’ location - that is, a location whose position is a power of two from the end of the chain. 
+Clearly, new pebbles are therefore created at the same rate that existing pebbles are ‘popped’ off the end of the chain, so we always have log(n) pebbles.
+
+Our algorithm is log(n) in time complexity:
+At each step, at most every pebble is advanced by one, meaning one hash function is executed for each pebble. 
+Since there are at most log(n) pebbles stored at any given time, this means there are at most log(n) hashes computed at each step.
+
 */
 
 /* 2. If you were designing an authentication mechanism for a hot new startup that wants to protect its users, how would you decide whether/where to use S/KEY?
-// TODO: Answer here (a few sentences).
+ 
+We would use S/KEY if we wanted a user to submit a different password, periodically, to the server. 
+Two-step authentication would be a use case for this, where a user would have a device that would generate a password to send to the server, which could then authenticate it. 
+Since the hash chain is proceeding backwards, an adversary who intercepted one of the passwords would still have no way of producing the next password to be used, so could not authenticate with the server.
+
 */
 
 /* 3. (Will not affect your grade:) How long did you spend on this project?
-// TODO: Answer here (just a number).
+  10 hours
 */
 
 /* 4. (Optional:) Do you have any comments or suggestions for improving the assignment?
