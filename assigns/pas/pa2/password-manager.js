@@ -110,7 +110,25 @@ var keychain = function() {
     * Return Type: string
     */
   keychain.get = function(name) {
-    throw "Not implemented!";
+    var k_hmac = string_to_bitarray("aaaaaaaaaaaaaaaa");
+    var k_enc = string_to_bitarray("aaaaaaaaaaaaaaaa");
+    var hmaced_name = HMAC(k_hmac, name);
+    var enc_value = keychain[hmaced_name];
+    if (enc_value == undefined) {
+      return null;
+    }
+    var len_of_hmac = bitarray_len(hmaced_name);
+    var len_of_enc_value = bitarray_len(enc_value);
+    var ciphertext = bitarray_slice(enc_value, 0, len_of_enc_value - len_of_hmac); // first part
+    var tag = bitarray_slice(enc_value, len_of_enc_value - len_of_hmac, len_of_enc_value); // first part
+
+    var gcm_cipher = setup_cipher(k_enc);
+    var password_candidate = dec_gcm(gcm_cipher, ciphertext)
+
+    if (bitarray_equal(tag, HMAC(k_hmac, bitarray_concat(ciphertext, hmaced_name)))) {
+      return string_from_padded_bitarray(password_candidate, MAX_PW_LEN_BYTES);
+    }
+    throw "Record tag does not match"
   }
 
   /** 
@@ -125,7 +143,15 @@ var keychain = function() {
   * Return Type: void
   */
   keychain.set = function(name, value) {
-    throw "Not implemented!";
+    var k_hmac = string_to_bitarray("aaaaaaaaaaaaaaaa");
+    var k_enc = string_to_bitarray("aaaaaaaaaaaaaaaa");
+    var hmaced_name = HMAC(k_hmac, name);
+    var gcm_cipher = setup_cipher(k_enc);
+    var value_bit_array = string_to_padded_bitarray(value, MAX_PW_LEN_BYTES);
+    var enc_value = enc_gcm(gcm_cipher, value_bit_array);
+    var tag = HMAC(k_hmac, bitarray_concat(enc_value, hmaced_name));
+    keychain[hmaced_name] = bitarray_concat(enc_value, tag);
+
   }
 
   /**
