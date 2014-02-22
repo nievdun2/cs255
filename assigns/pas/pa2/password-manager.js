@@ -58,14 +58,13 @@ var keychain = function() {
     * Return Type: void
     */
   keychain.init = function(password) {
-    // get salt
-    // make master kdf from password and salt
     priv.data.version = "CS 255 Password Manager v1.0";
-    priv.secrets.salt = random_bitarray(32);
+    priv.secrets.salt = random_bitarray(128);
     var master_key = KDF(password, priv.secrets.salt);
     var parts = split(master_key);
     priv.secrets.k_hmac = parts[0];
     priv.secrets.k_enc = parts[1];
+    ready = true;
   };
 
   /**
@@ -86,6 +85,7 @@ var keychain = function() {
     * Return Type: boolean
     */
   keychain.load = function(password, repr, trusted_data_check) {
+    ready = false;
     if (trusted_data_check !== undefined) {
       var repr_hash = SHA256(string_to_bitarray(repr));
       var check_matches = bitarray_equal(string_to_bitarray(repr_hash), string_to_bitarray(trusted_data_check));
@@ -100,13 +100,19 @@ var keychain = function() {
     var parts = split(master_key);
     var gcm_cipher = setup_cipher(parts[0]);
 
-    // If the wrong master password is provided, this operation
-    // will fail, so we will not complete load()
-    priv.data.version = dec_gcm(gcm_cipher, verification);
+    // If the wrong master password is provided, this try clause
+    // will fail, so we will not complete load() and return false
+    try {
+      priv.data.version = dec_gcm(gcm_cipher, verification);
+    } catch (err) {
+      return false;
+    }
+
     keychain = manager['keychain'];
     priv.secrets.k_hmac = parts[0];
     priv.secrets.k_enc = parts[1];
     priv.secrets.salt = manager['master_salt'];
+    ready = true;
     return true;
   };
 
@@ -124,6 +130,9 @@ var keychain = function() {
     * Return Type: array
     */ 
   keychain.dump = function() {
+    if (!ready) {
+      return null;
+    }
     var gcm_cipher = setup_cipher(priv.secrets.k_hmac);
 
     var tag = string_to_bitarray(priv.data.version)
@@ -149,6 +158,9 @@ var keychain = function() {
     * Return Type: string
     */
   keychain.get = function(name) {
+    if (!ready) {
+      throw "Keychain has not been initialized! Call the init() function"
+    }
     var hmaced_name = HMAC(priv.secrets.k_hmac, name);
     var enc_value = keychain[hmaced_name];
     if (enc_value == undefined) {
@@ -181,6 +193,9 @@ var keychain = function() {
   * Return Type: void
   */
   keychain.set = function(name, value) {
+    if (!ready) {
+      throw "Keychain has not been initialized! Call the init() function"
+    }
     var hmaced_name = HMAC(priv.secrets.k_hmac, name);
     var key_binded_to_name = HMAC(priv.secrets.k_enc, hmaced_name);
     key_binded_to_name = split(key_binded_to_name)[0] //need it to be 128 bits
@@ -201,6 +216,9 @@ var keychain = function() {
     * Return Type: boolean
   */
   keychain.remove = function(name) {
+    if (!ready) {
+      throw "Keychain has not been initialized! Call the init() function"
+    }
     var hmaced_name = HMAC(priv.secrets.k_hmac, name);
     var enc_value = keychain[hmaced_name];
     if (enc_value == undefined) {
