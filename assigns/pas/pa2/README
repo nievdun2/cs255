@@ -1,3 +1,7 @@
+Discussion questions for CS255 project 2.
+Rory MacQueen (macqueen)
+Rafael Moreno Ferrer (rmferrer)
+
 1) In order to prevent the adversary from learning information about the length of passwords, we pad each password entry, before we encrypt, up to the maximum length of a password, namely 64 bytes. An adversary is NOT able to tell where the real password ends and the padding begins.
 
 2) A swap attak is when an attacket switches the values for two domains. So an attacker might try and switch the passwords for www.google.com and www.evil.com. To prevent this, we bind the encryption of a password to its domain. The way we do this is as follows. The key used to encrypt the password value is derived as follows:
