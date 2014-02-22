@@ -58,7 +58,14 @@ var keychain = function() {
     * Return Type: void
     */
   keychain.init = function(password) {
+    // get salt
+    // make master kdf from password and salt
     priv.data.version = "CS 255 Password Manager v1.0";
+    priv.secrets.salt = random_bitarray(32);
+    var master_key = KDF(password, priv.secrets.salt);
+    var parts = split(master_key);
+    priv.secrets.k_hmac = parts[0];
+    priv.secrets.k_enc = parts[1];
   };
 
   /**
@@ -79,7 +86,28 @@ var keychain = function() {
     * Return Type: boolean
     */
   keychain.load = function(password, repr, trusted_data_check) {
-    throw "Not implemented!";
+    if (trusted_data_check !== undefined) {
+      var repr_hash = SHA256(string_to_bitarray(repr));
+      var check_matches = bitarray_equal(string_to_bitarray(repr_hash), string_to_bitarray(trusted_data_check));
+      if (!check_matches) {
+        throw "SHA-256 check did not pass";
+      }
+    }
+
+    var manager = JSON.parse(repr);
+    var verification = manager['verification'];
+    var master_key = KDF(password, manager['master_salt']);
+    var parts = split(master_key);
+    var gcm_cipher = setup_cipher(parts[0]);
+
+    // If the wrong master password is provided, this operation
+    // will fail, so we will not complete load()
+    priv.data.version = dec_gcm(gcm_cipher, verification);
+    keychain = manager['keychain'];
+    priv.secrets.k_hmac = parts[0];
+    priv.secrets.k_enc = parts[1];
+    priv.secrets.salt = manager['master_salt'];
+    return true;
   };
 
   /**
@@ -96,7 +124,18 @@ var keychain = function() {
     * Return Type: array
     */ 
   keychain.dump = function() {
-    throw "Not implemented!";
+    var gcm_cipher = setup_cipher(priv.secrets.k_hmac);
+
+    var tag = string_to_bitarray(priv.data.version)
+    var verification = enc_gcm(gcm_cipher, tag);
+    var to_save = {
+      'keychain': keychain,
+      'verification': verification,
+      'master_salt': priv.secrets.salt
+    }
+    var keychain_string = JSON.stringify(to_save);
+    var hash = SHA256(string_to_bitarray(keychain_string));
+    return [keychain_string, hash];
   }
 
   /**
@@ -110,25 +149,24 @@ var keychain = function() {
     * Return Type: string
     */
   keychain.get = function(name) {
-    var k_hmac = string_to_bitarray("aaaaaaaaaaaaaaaa");
-    var k_enc = string_to_bitarray("aaaaaaaaaaaaaaaa");
-    var hmaced_name = HMAC(k_hmac, name);
+    var hmaced_name = HMAC(priv.secrets.k_hmac, name);
     var enc_value = keychain[hmaced_name];
     if (enc_value == undefined) {
       return null;
     }
-    var len_of_hmac = bitarray_len(hmaced_name);
-    var len_of_enc_value = bitarray_len(enc_value);
-    var ciphertext = bitarray_slice(enc_value, 0, len_of_enc_value - len_of_hmac); // first part
-    var tag = bitarray_slice(enc_value, len_of_enc_value - len_of_hmac, len_of_enc_value); // first part
+    var key_binded_to_name = HMAC(priv.secrets.k_enc, hmaced_name);
+    key_binded_to_name = split(key_binded_to_name)[0];
+    var gcm_cipher = setup_cipher(key_binded_to_name);
+    var password_candidate = dec_gcm(gcm_cipher, enc_value)
+    return string_from_padded_bitarray(password_candidate, MAX_PW_LEN_BYTES);
 
-    var gcm_cipher = setup_cipher(k_enc);
-    var password_candidate = dec_gcm(gcm_cipher, ciphertext)
+  }
 
-    if (bitarray_equal(tag, HMAC(k_hmac, bitarray_concat(ciphertext, hmaced_name)))) {
-      return string_from_padded_bitarray(password_candidate, MAX_PW_LEN_BYTES);
-    }
-    throw "Record tag does not match"
+  var split = function(array) {
+    var len = bitarray_len(array);
+    var front = bitarray_slice(array, 0, len/2);
+    var back = bitarray_slice(array, len/2, len);
+    return [front, back];
   }
 
   /** 
@@ -143,15 +181,14 @@ var keychain = function() {
   * Return Type: void
   */
   keychain.set = function(name, value) {
-    var k_hmac = string_to_bitarray("aaaaaaaaaaaaaaaa");
-    var k_enc = string_to_bitarray("aaaaaaaaaaaaaaaa");
-    var hmaced_name = HMAC(k_hmac, name);
-    var gcm_cipher = setup_cipher(k_enc);
+    var hmaced_name = HMAC(priv.secrets.k_hmac, name);
+    var key_binded_to_name = HMAC(priv.secrets.k_enc, hmaced_name);
+    key_binded_to_name = split(key_binded_to_name)[0] //need it to be 128 bits
+    var gcm_cipher = setup_cipher(key_binded_to_name);
+
     var value_bit_array = string_to_padded_bitarray(value, MAX_PW_LEN_BYTES);
     var enc_value = enc_gcm(gcm_cipher, value_bit_array);
-    var tag = HMAC(k_hmac, bitarray_concat(enc_value, hmaced_name));
-    keychain[hmaced_name] = bitarray_concat(enc_value, tag);
-
+    keychain[hmaced_name] = enc_value;
   }
 
   /**
@@ -164,7 +201,12 @@ var keychain = function() {
     * Return Type: boolean
   */
   keychain.remove = function(name) {
-    throw "Not implemented!";
+    var hmaced_name = HMAC(priv.secrets.k_hmac, name);
+    var enc_value = keychain[hmaced_name];
+    if (enc_value == undefined) {
+      return false;
+    }
+    return delete keychain[hmaced_name];
   }
 
   return keychain;
