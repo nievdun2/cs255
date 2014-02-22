@@ -1,0 +1,13 @@
+1) In order to prevent the adversary from learning information about the length of passwords, we pad each password entry, before we encrypt, up to the maximum length of a password, namely 64 bytes. An adversary is NOT able to tell where the real password ends and the padding begins.
+
+2) A swap attak is when an attacket switches the values for two domains. So an attacker might try and switch the passwords for www.google.com and www.evil.com. To prevent this, we bind the encryption of a password to its domain. The way we do this is as follows. The key used to encrypt the password value is derived as follows:
+
+key_used_to_encrypt = HMAC(k_1, HMAC(k_0, domain_name));
+
+where k_0 and k_1 are two halves of the master key produced from PBKDF. In this way, the domain_name itself is built into the key used to encrypt the password value. Therefore, if you try to decrypt this password value with a key that is NOT based off of the correct domain name, the GCM decryption algorithm will throw an error, and NOT give you the password. Therefore, a swap attack will not work because if you try to get the password for www.google.com using the domain_name www.evil.com, the decryption will not work.
+
+3) 
+
+4)
+
+5) In order to hide information about the total number of passwords stored, we can pad the dump of the entire keychain when we write it out to disk. We would pad the resulting dump up to a multiple of some power of two, say, 2048 Bytes. This way, an attacker would not know for sure how many passwords were stored in the password manager. 
