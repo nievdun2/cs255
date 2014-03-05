@@ -12,7 +12,9 @@ var client = function(client_sec_key_base64, client_sec_key_password, ca_cert, n
   var TYPE = lib.TYPE;
 
   var socket;
-  var protocol_state;
+  var protocol_state = 'START';
+
+  var ca_cert = ca_cert;
 
   function unwrap_client_sec_key() {
     var key_enc = lib.base64_to_bitarray(client_sec_key_base64);
@@ -38,8 +40,39 @@ var client = function(client_sec_key_base64, client_sec_key_password, ca_cert, n
   var session_callback = null;
   var session_close_callback = null;
 
+  // Helper function to check if an object contains a list of properties
+  function check_properties(obj, properties){
+    for (var i = 0; i < properties.length; i++) {
+      if (!obj.hasOwnProperty(properties[i])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   function check_cert(crt) {
-    // TODO: implement the X.509 certificate checks
+    // Make sure these fields are present in certificate
+    required_keys = ['valid_from', 'valid_to', 'issuer', 'subject', 'fingerprint'];
+    if (!check_properties(crt, required_keys)){
+      protocol_abort();
+      return false;
+    }
+    var now = new Date()
+    var from = new Date(crt.valid_from)
+    var to = new Date(crt.valid_to)
+    var expiration_date = to;
+    expiration_date.setDate(expiration_date.getDate() - 7)
+    if (!(now.getTime() >= from.getTime() && now.getTime() <= expiration_date.getTime())){
+      protocol_abort(); // certificate time invalid
+    }
+
+    // Make sure these fields are present in the 'subject' object
+    required_keys = ['C', 'ST', 'L', 'O', 'OU', 'CN', 'emailAddress'];
+    if (!check_properties(crt.subject, required_keys)){
+      protocol_abort();
+      return false;
+    }
+
     return true;
   }
 
@@ -47,6 +80,7 @@ var client = function(client_sec_key_base64, client_sec_key_password, ca_cert, n
     data = JSON.parse(json_data);
     switch(data.type) {
       case TYPE['CHALLENGE']:
+
         if (protocol_state != 'START') {
           protocol_abort();
           return;
@@ -87,8 +121,8 @@ var client = function(client_sec_key_base64, client_sec_key_password, ca_cert, n
   client.connect = function(host, port, session_callback_f, session_close_callback_f) {
     var client_options = {
       // TODO: Fill in options
-      ca: null,
-      host: null
+      ca: ca_cert,
+      host: host
     };
     
     session_callback = session_callback_f;

@@ -1,7 +1,7 @@
 
 // Change these for testing:
-var test_server_key_password = 'serverpw';
-var test_client_key_password = 'clientpw';
+var test_server_key_password = 'serverpassword';
+var test_client_key_password = 'clientpassword';
 
 
 

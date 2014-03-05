@@ -11,6 +11,9 @@ var server = function(server_key, server_key_password, server_cert, client_pub_k
   var tls_server;
   var socket = null;
   var protocol_state;
+  var server_key = server_key;
+  var server_password = server_key_password;
+  var server_cert = server_cert;
 
   function unwrap_client_pub_key() {
     var pair_pub_pt = sjcl.ecc.curves['c256'].fromBits(
@@ -112,9 +115,9 @@ var server = function(server_key, server_key_password, server_cert, client_pub_k
   server.start = function(port) {
     var server_options = {
       // TODO: initialize TLS server options
-      key: null,
-      cert: null,
-      passphrase: null
+      key: server_key,
+      cert: server_cert,
+      passphrase: server_password
     };
 
     tls_server = tls.createServer(server_options, on_connect);
