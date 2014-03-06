@@ -87,7 +87,12 @@ var client = function(client_sec_key_base64, client_sec_key_password, ca_cert, n
         }
         protocol_state = 'CHALLENGE';
         // TODO: respond to challenge
-        lib.send_message(socket, TYPE['RESPONSE'], 'blue');
+        console.log("challenge is " + data.message);
+        message_bit = lib.string_to_bitarray(data.message);
+        var signature = lib.ECDSA_sign(client_sec_key, message_bit);
+        console.log(signature)
+        //console.log(lib.bitarray_to_string(signature));
+        lib.send_message(socket, TYPE['RESPONSE'], signature);
         break;
 
       case TYPE['SESSION_MESSAGE']:

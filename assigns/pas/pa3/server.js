@@ -14,6 +14,7 @@ var server = function(server_key, server_key_password, server_cert, client_pub_k
   var server_key = server_key;
   var server_password = server_key_password;
   var server_cert = server_cert;
+  var current_challenge;
 
   function unwrap_client_pub_key() {
     var pair_pub_pt = sjcl.ecc.curves['c256'].fromBits(
@@ -31,7 +32,7 @@ var server = function(server_key, server_key_password, server_cert, client_pub_k
 
   function get_new_challenge() {
     // TODO: generate challenge
-    return 'what is your favorite color?';
+    return 'foo';
   }
 
   function process_client_msg(json_data) {
@@ -52,8 +53,11 @@ var server = function(server_key, server_key_password, server_cert, client_pub_k
 
         protocol_state = 'ABORT';
         var response_correct = false;
-        // TODO: check challenge response
-        response_correct = true;
+        var response_bit = data.message;
+        console.log(data.message)
+        var challenge_bit = lib.string_to_bitarray(current_challenge);
+
+        response_correct = lib.ECDSA_verify(client_pub_key, challenge_bit, response_bit);
         if (response_correct) {
           server_log('authentication succeeded')
           lib.send_message(socket, TYPE['SUCCESS'], '');
@@ -102,11 +106,11 @@ var server = function(server_key, server_key_password, server_cert, client_pub_k
 
     server_log('received client connection');
 
-    var challenge = get_new_challenge(); 
-    server_log('generated challenge: ' + challenge);
+    current_challenge = get_new_challenge(); 
+    server_log('generated challenge: ' + current_challenge);
 
     protocol_state = 'CHALLENGE';
-    lib.send_message(socket, TYPE['CHALLENGE'], challenge);
+    lib.send_message(socket, TYPE['CHALLENGE'], current_challenge);
     server_log('sent challenge to client');
   }
 
