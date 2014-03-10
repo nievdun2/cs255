@@ -86,13 +86,9 @@ var client = function(client_sec_key_base64, client_sec_key_password, ca_cert, n
           return;
         }
         protocol_state = 'CHALLENGE';
-        // TODO: respond to challenge
-        console.log("challenge is " + data.message);
-        message_bit = lib.string_to_bitarray(data.message);
-        var signature = lib.ECDSA_sign(client_sec_key, message_bit);
-        console.log(signature)
-        //console.log(lib.bitarray_to_string(signature));
-        lib.send_message(socket, TYPE['RESPONSE'], signature);
+        message_bit = lib.base64_to_bitarray(data.message);
+        var signature_bit = lib.ECDSA_sign(client_sec_key, message_bit);
+        lib.send_message(socket, TYPE['RESPONSE'], lib.bitarray_to_base64(signature_bit));
         break;
 
       case TYPE['SESSION_MESSAGE']:
@@ -125,9 +121,10 @@ var client = function(client_sec_key_base64, client_sec_key_password, ca_cert, n
 
   client.connect = function(host, port, session_callback_f, session_close_callback_f) {
     var client_options = {
-      // TODO: Fill in options
       ca: ca_cert,
-      host: host
+      host: host,
+      port: port,
+      rejectUnauthorized: true
     };
     
     session_callback = session_callback_f;

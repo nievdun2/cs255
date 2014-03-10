@@ -14,7 +14,10 @@ var server = function(server_key, server_key_password, server_cert, client_pub_k
   var server_key = server_key;
   var server_password = server_key_password;
   var server_cert = server_cert;
+
   var current_challenge;
+  var challenge_key = lib.random_bitarray(128);
+  var nonce = 0;
 
   function unwrap_client_pub_key() {
     var pair_pub_pt = sjcl.ecc.curves['c256'].fromBits(
@@ -31,8 +34,10 @@ var server = function(server_key, server_key_password, server_cert, client_pub_k
   var client_pub_key = unwrap_client_pub_key();
 
   function get_new_challenge() {
-    // TODO: generate challenge
-    return 'foo';
+    nonce += 1;
+    var hmac = lib.HMAC(challenge_key, nonce.toString());
+    challenge = lib.bitarray_to_base64(hmac);
+    return challenge;
   }
 
   function process_client_msg(json_data) {
@@ -43,7 +48,6 @@ var server = function(server_key, server_key_password, server_cert, client_pub_k
       protocol_abort();
       return;
     }
-
     switch (data.type) {
       case TYPE['RESPONSE']:
         if (protocol_state != 'CHALLENGE') {
@@ -53,11 +57,10 @@ var server = function(server_key, server_key_password, server_cert, client_pub_k
 
         protocol_state = 'ABORT';
         var response_correct = false;
-        var response_bit = data.message;
-        console.log(data.message)
-        var challenge_bit = lib.string_to_bitarray(current_challenge);
-
+        var challenge_bit = lib.base64_to_bitarray(current_challenge);
+        var response_bit = lib.base64_to_bitarray(data.message);
         response_correct = lib.ECDSA_verify(client_pub_key, challenge_bit, response_bit);
+
         if (response_correct) {
           server_log('authentication succeeded')
           lib.send_message(socket, TYPE['SUCCESS'], '');
@@ -118,7 +121,6 @@ var server = function(server_key, server_key_password, server_cert, client_pub_k
 
   server.start = function(port) {
     var server_options = {
-      // TODO: initialize TLS server options
       key: server_key,
       cert: server_cert,
       passphrase: server_password
