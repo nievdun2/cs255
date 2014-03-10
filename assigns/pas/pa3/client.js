@@ -50,6 +50,15 @@ var client = function(client_sec_key_base64, client_sec_key_password, ca_cert, n
     return true;
   }
 
+  function check_properties_and_values(obj, property_map){
+    for (var prop in property_map) {
+      if (obj[prop] != property_map[prop]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   function check_cert(crt) {
     // Make sure these fields are present in certificate
     required_keys = ['valid_from', 'valid_to', 'issuer', 'subject', 'fingerprint'];
@@ -64,11 +73,21 @@ var client = function(client_sec_key_base64, client_sec_key_password, ca_cert, n
     expiration_date.setDate(expiration_date.getDate() - 7)
     if (!(now.getTime() >= from.getTime() && now.getTime() <= expiration_date.getTime())){
       protocol_abort(); // certificate time invalid
+      return false;
     }
 
-    // Make sure these fields are present in the 'subject' object
-    required_keys = ['C', 'ST', 'L', 'O', 'OU', 'CN', 'emailAddress'];
-    if (!check_properties(crt.subject, required_keys)){
+    // Make sure these fields and values are present in the 'subject' object
+    var required_fields = {
+      'C': 'US',
+      'ST': 'CA',
+      'L': 'Stanford',
+      'O': 'CS 255',
+      'OU': 'Project 3',
+      'CN': 'localhost',
+      'emailAddress': 'cs255ta@cs.stanford.edu'
+    };
+
+    if (!check_properties_and_values(crt.subject, required_fields)){
       protocol_abort();
       return false;
     }
