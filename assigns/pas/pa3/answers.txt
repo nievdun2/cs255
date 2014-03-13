@@ -1,0 +1,89 @@
+CS255 Project 3 Short Answers
+
+Rory Macqueen -- macqueen@stanford.edu
+Rafael Ferrer -- rmferrer@stanford.edu
+
+1. This is not secure. Since the verification step does 
+not verify information that only the client could have 
+(our secret client key, for example) it does not provide user authentication.
+
+Anyone can compute r = SHA-256(l) since SHA-256 is a 
+public function and it does not require any secret 
+information held by a particular party. Hence anyone 
+can generate r = SHA-256(l) and send it to the server 
+which will verify it successfully. The result is a 
+successful connection where the server has not really 
+learned anything about the identity of the client. This 
+is practically the same as not doing any client 
+authentication at all.
+
+2. The function tls.connect accepts a CA field in the options
+which will validate that the server is signed by a trusted CA. 
+Hence it is not necessary to check the issuer field since
+tls.connect already does that work for us.
+
+3. First: storing the client secret key in the clear: 
+	if our datastore is comprimised the attacker can recover the 
+	client secret key and authenticate as the client. 
+   Second: if we stored a hash of the client secret key (without 
+   using a salt)instead of a salted KDF output. In this case our
+   model would not be robust against offline dictionary attacks. 
+
+4. 
+
+a) Advantage: suppose a client C is connecting to multiple servers
+S1, ...., Sn. In symmetric-key challenge-response there is a key 
+per connection k1: C <-> S1, ...., kn: C <-> Sn. Hence if any of these
+keys gets compromised the remaining connections are not compromised. 
+However, in the public-key setting, since the client possesses one 
+secret key across all connections, if that secret key gets compromised
+then all connections get compromised. Also symmetric key crypto is 
+much fatser than the asymmetric counterpart, although this might not
+be a big deal since authentication only happens once per connection.
+
+b) Disadvantage: first, is that there needs to be a shared symmetric
+key exchange per client-server connection. Also, following the hint, 
+notice that in the symmetric-key challenge-response scenario we need
+client and servers to store a shared key per connection (which is 
+created and negotiated during the first phases of connection setup) 
+As the hint mentioned if the clients/servers have limited trusted storage 
+we might not be able to scale to a large number of connections, since
+each connection needs it own key.
+
+5. 
+
+a) First off, the server would need to have the client's credentials
+stored during a one time registration step. Next, during the client
+authentication phase of connection setup, the client sends its password
+in the clear along the secure channel to the server. The server then verifies
+this candidate password matches the password representation it has for that client. 
+THE SERVER SHOULD NOT STORE THE CLIENT'S PASSWORD IN PLAINTEXT. NOR IT SHOULD 
+STORE A HASH OF IT. These two approaches would open vulnerabilities:
+In case the passwords are stored in plaintext, if an attacked compromises the
+password database it has access to all clients' cleartext passwords. In the 
+case where the passwords are just hashed the attacker can mount an offline dictionary 
+attack. 
+
+HENCE THE SERVER SHOULD STORE AT LEAST THE PAIR (HASH(PASSWORD+SALT), SALT)
+to prevent offline dictionary batch attacks.
+
+b) If the attacker is able to get a "bad cert" for a server it can impersonate, 
+during the short period of time the cert is valid, the server. The jist of the attack is:
+The attacker uses BAD_CERT to impersonate SERVER to CLIENT while BAD_CERT is valid. The 
+client will then send back its PASSWORD to the attacker during client authentication. 
+Now the attacker has the client's password which it can use at a later time to authenticate 
+to the SERVER as the CLIENT. So the attack is as follows:
+
+0) Attacker tricks CA to issue a "bad cert" BAD_CERT for server S to it.
+
+1) While BAD_CERT is valid, Attacker gets a connection from client C. Since BAD_CERT is valid
+Attacker can successfully authenticate itself as S to C. 
+
+2) Under our password authentication scheme C will send its password PASS(C) to the Attacker, who
+under the protected connection, can see PASS(C) in cleartext.
+
+3) Now that Attacker knows PASS(C) it can establish a connection to S. S will authenticate itself to Attacker. 
+
+4) Attacker can now successfully authenticate to S as C via PASS(C). 
+Note that step 4 can be performed whether BAD_CERT is valid or not, since the attacker now only needs 
+PASS(C) (which does not have expiration presumably, or whose expiration is probably not the same as BAD_CERT's) to authenticate to S as C.
